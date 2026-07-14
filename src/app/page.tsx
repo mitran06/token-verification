@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-10 p-8">
       <div className="text-center">
-        <BrandMark className="mx-auto mb-4 h-14 w-14 text-2xl shadow-sm" />
+        <BrandMark className="mx-auto mb-4 block h-14 w-auto" />
         <h1 className="font-display text-3xl font-semibold tracking-tight">Verification Queue</h1>
         <p className="mt-2 text-ink/50">Amrita admissions · document verification</p>
       </div>

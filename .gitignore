@@ -37,6 +37,11 @@ yarn-error.log*
 # test artifacts
 /test-results
 /playwright-report
+/screenshots
+
+# db backups (never commit dumps)
+/backups
+*.dump
 
 # vercel
 .vercel

@@ -12,7 +12,7 @@ export default async function LoginPage() {
     <main className="flex flex-1 items-center justify-center p-6">
       <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-paper-2 p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <BrandMark className="h-10 w-10 text-lg" />
+          <BrandMark className="h-10 w-auto" />
           <div>
             <div className="font-display text-lg font-semibold leading-tight">Staff sign in</div>
             <div className="text-xs uppercase tracking-wide text-ink/40">Verification queue</div>

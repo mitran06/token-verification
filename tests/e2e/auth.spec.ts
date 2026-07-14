@@ -160,7 +160,7 @@ test("the display wall updates live (SSE) when a counter serves a token", async 
   const wallCtx = await browser.newContext();
   const wall = await wallCtx.newPage();
   await wall.goto(displayPath!);
-  await expect(wall.getByRole("heading", { name: "Now serving" })).toBeVisible();
+  await expect(wall.getByRole("heading", { name: /now serving/i })).toBeVisible();
 
   // Reception issues a token for APP003.
   const recCtx = await browser.newContext();
@@ -188,8 +188,8 @@ test("the display wall updates live (SSE) when a counter serves a token", async 
   await expect(ctr.getByText("Chetan Chopra")).toBeVisible();
   await ctrCtx.close();
 
-  // The wall reflects it live via SSE (no reload).
-  await expect(wall.getByText("Chetan Chopra")).toBeVisible({ timeout: 8000 });
+  // The wall reflects it live via SSE (no reload) — Counter 3's call appears.
+  await expect(wall.getByText("Counter 3").first()).toBeVisible({ timeout: 8000 });
   await wall.screenshot({ path: "screenshots/wall.png" });
   await wallCtx.close();
 });

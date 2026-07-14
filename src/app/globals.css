@@ -13,16 +13,17 @@
   --color-ink-900: #0e131b;
   --color-ink-800: #1b2230;
   --color-ink-700: #29323f;
-  --color-maroon: #7a1526;
-  --color-maroon-600: #611019;
-  --color-maroon-100: #f3e0e2;
-  --color-saffron: #c07d1e;
+  --color-maroon: #a4123f; /* Amrita primary — Pantone 7426C (amrita.edu/branding) */
+  --color-maroon-600: #85102f;
+  --color-maroon-100: #f6e0e6;
+  --color-saffron: #b26a12;
   --color-saffron-100: #f6ecd7;
-  --color-verdant: #1a7a4f;
+  --color-verdant: #157f5b;
   --color-verdant-100: #dcf0e6;
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-space-grotesk), var(--font-inter), sans-serif;
+  /* Open Sans is Amrita's official primary typeface — one normal face throughout. */
+  --font-sans: var(--font-open-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-open-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {

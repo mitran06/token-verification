@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { applications, counters, tokenEvents, tokens } from "@/db/schema";
 import { businessDay } from "./time";
@@ -373,58 +373,30 @@ export async function getNotArrivedTokens(): Promise<MissedToken[]> {
 // ---------------------------------------------------------------------------
 // Board (display wall): open counters + their current token, plus missed/queued.
 // ---------------------------------------------------------------------------
-export type BoardCounter = {
-  id: string;
-  label: string;
-  status: "active" | "on_break" | "closed";
-  current: { tokenNumber: number; applicationNumber: string; applicationName: string } | null;
-};
+// A "call" = a token that a counter has been assigned/served, newest first.
+// The wall renders these so the just-called token lands top-left and flashes.
+export type Call = { tokenNumber: number; counterLabel: string };
 export type Board = {
-  counters: BoardCounter[];
-  missed: TokenView[];
+  calls: Call[];
   queued: TokenView[];
+  missed: TokenView[];
+  openCounters: number;
 };
 
 export async function getBoard(): Promise<Board> {
   const day = businessDay();
-  const open = await db
-    .select({ id: counters.id, label: counters.label, status: counters.status })
-    .from(counters)
-    .where(eq(counters.isOpen, true))
-    .orderBy(asc(counters.sortOrder), asc(counters.label));
-  const current = await db
-    .select({
-      assignedTo: tokens.assignedTo,
-      tokenNumber: tokens.tokenNumber,
-      applicationNumber: tokens.applicationNumber,
-      applicationName: tokens.applicationName,
-    })
+  const calls = await db
+    .select({ tokenNumber: tokens.tokenNumber, counterLabel: counters.label })
     .from(tokens)
-    .where(and(eq(tokens.businessDay, day), eq(tokens.status, "assigned")));
-  const byCounter = new Map(current.map((t) => [t.assignedTo, t]));
+    .innerJoin(counters, eq(tokens.assignedTo, counters.id))
+    .where(and(eq(tokens.businessDay, day), isNotNull(tokens.assignedAt)))
+    .orderBy(desc(tokens.assignedAt))
+    .limit(24);
+  const [{ open }] = await db
+    .select({ open: sql<number>`count(*)::int` })
+    .from(counters)
+    .where(eq(counters.isOpen, true));
   const queued = await getQueuedTokens();
   const missed = await getNotArrivedTokens();
-  return {
-    counters: open.map((c) => {
-      const cur = byCounter.get(c.id);
-      return {
-        id: c.id,
-        label: c.label,
-        status: c.status,
-        current: cur
-          ? {
-              tokenNumber: cur.tokenNumber,
-              applicationNumber: cur.applicationNumber,
-              applicationName: cur.applicationName,
-            }
-          : null,
-      };
-    }),
-    missed: missed.map((m) => ({
-      tokenNumber: m.tokenNumber,
-      applicationNumber: m.applicationNumber,
-      applicationName: m.applicationName,
-    })),
-    queued,
-  };
+  return { calls, queued, missed, openCounters: Number(open) };
 }

@@ -27,12 +27,14 @@ cp .env.example .env && chmod 600 .env
 ```
 Fill in, generating strong values:
 ```bash
-openssl rand -base64 32   # → SESSION_SECRET  (REQUIRED; app refuses to start without it)
-openssl rand -base64 24   # → POSTGRES_PASSWORD
+openssl rand -hex 24      # → POSTGRES_PASSWORD  (URL-SAFE; do NOT use base64 — / + = break the DB URL)
+openssl rand -base64 32   # → SESSION_SECRET     (REQUIRED; app refuses to start without it)
 ```
 Set in `.env`: `POSTGRES_PASSWORD`, `SESSION_SECRET`, `TUNNEL_TOKEN` (from step 2),
-`SEED_ADMIN_USERNAME=admin`, `SEED_ADMIN_PASSWORD=<a strong password>` (enforced ≥12 chars,
-mixed case + digit). Optionally pin `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` (openssl rand -base64 32).
+`SEED_ADMIN_USERNAME=admin`, and `SEED_ADMIN_PASSWORD` — **enforced: ≥12 chars with an uppercase,
+a lowercase, and a digit** (this is your permanent admin password). Optionally pin
+`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` (`openssl rand -base64 32`). **Leave `DATABASE_URL` /
+`DB_OWNER_URL` unset** — compose builds them from `POSTGRES_PASSWORD`.
 
 ## 4. Deploy
 ```bash
