@@ -1,0 +1,57 @@
+# Production overlay. Run with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Requires a root-owned .env (chmod 600) next to this file — see .env.example.
+services:
+  # One-off: apply migrations + seed the first admin, then exit. The app waits
+  # for this to complete. Uses the "migrator" image (full deps + drizzle/ + tsx).
+  migrate:
+    build:
+      context: .
+      target: migrator
+    command: sh -c "npm run migrate && npm run seed:admin"
+    env_file: [.env]
+    environment:
+      DB_OWNER_URL: ${DB_OWNER_URL:-postgres://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/token_system}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    env_file: [.env]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Outbound-only connection to Cloudflare — no inbound ports opened on the VM.
+  # The tunnel's Public Hostname (token.mitran.dev → http://app:3000) is set in
+  # the Cloudflare dashboard; TUNNEL_TOKEN comes from .env.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Nightly pg_dump into ./backups (keep 14 days).
+  backup:
+    image: postgres:17
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      TZ: Asia/Kolkata
+    entrypoint:
+      - sh
+      - -c
+      - "while true; do sh /backup.sh; sleep 86400; done"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped

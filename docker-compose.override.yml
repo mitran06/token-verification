@@ -1,0 +1,10 @@
+# Local-dev conveniences, auto-merged by `docker compose` (NOT used in prod, which
+# runs with an explicit `-f docker-compose.yml -f docker-compose.prod.yml`).
+# Publishes the db + app ports on localhost for development / tests.
+services:
+  db:
+    ports:
+      - "5432:5432"
+  app:
+    ports:
+      - "3000:3000"

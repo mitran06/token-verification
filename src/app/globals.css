@@ -1,26 +1,39 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ---------------------------------------------------------------------------
+   Design system — "verification desk / departure board".
+   Warm institutional palette (Amrita maroon + saffron), calm paper for staff,
+   deep ink board for the wall. Display face Space Grotesk (tabular numerals =
+   the token number is the hero), body Inter.
+--------------------------------------------------------------------------- */
+@theme {
+  --color-paper: #f5f3ee;
+  --color-paper-2: #ffffff;
+  --color-ink: #141a24;
+  --color-ink-900: #0e131b;
+  --color-ink-800: #1b2230;
+  --color-ink-700: #29323f;
+  --color-maroon: #7a1526;
+  --color-maroon-600: #611019;
+  --color-maroon-100: #f3e0e2;
+  --color-saffron: #c07d1e;
+  --color-saffron-100: #f6ecd7;
+  --color-verdant: #1a7a4f;
+  --color-verdant-100: #dcf0e6;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-inter), sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* tabular figures for token numbers */
+.nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
