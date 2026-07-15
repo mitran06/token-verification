@@ -110,7 +110,7 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
         <footer className="mt-6 border-t border-ink/10 pt-3 text-center text-xs text-ink/50">
           Built by{" "}
           <a
-            href="https://mitran.dev"
+            href="https://rochit02.github.io"
             target="_blank"
             rel="noreferrer"
             className="font-medium text-maroon hover:underline"
