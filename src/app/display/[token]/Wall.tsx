@@ -131,7 +131,7 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
         </div>
 
         <footer className="mt-8 border-t border-ink/15 pt-5 text-center text-base text-ink/70 md:text-lg">
-          Token Management System by{" "}
+          Made with ❤️ by{" "}
           <a
             href="https://rochit02.github.io"
             target="_blank"
@@ -149,16 +149,6 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
           >
             Mitran Gokulnath
           </a>{" "}
-          is licensed under{" "}
-          <a
-            href="https://creativecommons.org/licenses/by-nc/4.0/"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-maroon"
-          >
-            Creative Commons Attribution-NonCommercial 4.0 International
-          </a>
-          .
         </footer>
 
         <div aria-live="polite" className="sr-only">
