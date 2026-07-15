@@ -91,10 +91,13 @@ export function ReceptionClient({
       <div className="flex flex-col gap-6">
         <section>
           <h2 className="mb-2 font-medium">Queued ({queued.length})</h2>
-          <ul className="divide-y divide-zinc-100">
-            {queued.length === 0 && <li className="py-2 text-sm text-zinc-400">Empty</li>}
+          <ul className="grid grid-cols-2 gap-x-6">
+            {queued.length === 0 && <li className="col-span-2 py-2 text-sm text-zinc-400">Empty</li>}
             {queued.map((t) => (
-              <li key={t.applicationNumber} className="flex justify-between py-1.5">
+              <li
+                key={t.applicationNumber}
+                className="flex justify-between border-b border-zinc-100 py-1.5"
+              >
                 <span className="font-medium tabular-nums">{t.tokenNumber}</span>
                 <span className="text-sm text-zinc-500">{t.applicationNumber}</span>
               </li>

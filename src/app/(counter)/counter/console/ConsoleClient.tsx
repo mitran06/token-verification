@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useCallback, useEffect, useState } from "react";
 import { FormError } from "@/components/ui/form";
 import {
   type ConsoleState,
@@ -19,6 +19,7 @@ function ActionButton({
   className,
   disabled,
   hidden,
+  onSubmitted,
 }: {
   action: Action;
   csrf: string;
@@ -26,16 +27,18 @@ function ActionButton({
   className: string;
   disabled?: boolean;
   hidden?: React.ReactNode;
+  onSubmitted?: () => void;
 }) {
   const [state, formAction] = useActionState<ConsoleState, FormData>(action, {});
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-1 flex-col gap-1">
       <form action={formAction}>
         <input type="hidden" name="csrf" value={csrf} />
         {hidden}
         <button
           type="submit"
           disabled={disabled}
+          onClick={onSubmitted}
           className={`${className} disabled:cursor-not-allowed disabled:opacity-40`}
         >
           {label}
@@ -50,12 +53,29 @@ export function ConsoleClient({
   csrf,
   status,
   current,
+  delaySeconds,
 }: {
   csrf: string;
   status: Status;
   current: Current;
+  delaySeconds: number;
 }) {
   const active = status === "active";
+
+  // After Next Token / Not Arrived, lock BOTH buttons for `delaySeconds` so an
+  // accidental double-click can't skip a token. The countdown survives the SSE
+  // refresh because this client component keeps its state across router.refresh().
+  const [remaining, setRemaining] = useState(0);
+  const cooling = remaining > 0;
+  const startCooldown = useCallback(() => {
+    if (delaySeconds > 0) setRemaining(delaySeconds);
+  }, [delaySeconds]);
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const id = setTimeout(() => setRemaining((r) => r - 1), 1000);
+    return () => clearTimeout(id);
+  }, [remaining]);
+
   return (
     <div className="flex w-full max-w-xl flex-col items-center gap-8">
       <div className="w-full rounded-2xl border border-ink/10 bg-paper-2 p-8 text-center shadow-sm">
@@ -63,29 +83,44 @@ export function ConsoleClient({
           <>
             <div className="text-sm uppercase tracking-wide text-ink/40">Now serving</div>
             <div className="nums my-2 font-display text-7xl font-bold text-maroon">{current.tokenNumber}</div>
-            <div className="text-ink/80">{current.applicationName}</div>
-            <div className="text-sm text-ink/40">{current.applicationNumber}</div>
+            <div className="mt-3 text-ink/80">
+              <span className="text-ink/50">Name: </span>
+              <span className="font-medium">{current.applicationName}</span>
+            </div>
+            <div className="mt-0.5 text-lg text-ink/80">
+              <span className="text-ink/50">Application No.: </span>
+              <span className="nums font-semibold">{current.applicationNumber}</span>
+            </div>
           </>
         ) : (
           <div className="py-8 text-lg text-ink/30">No token in hand</div>
         )}
       </div>
 
-      <div className="flex w-full gap-3">
-        <ActionButton
-          action={nextTokenAction}
-          csrf={csrf}
-          label="Next Token"
-          disabled={!active}
-          className="flex-1 rounded-xl bg-verdant px-4 py-4 text-lg font-semibold text-white hover:bg-verdant/90"
-        />
-        <ActionButton
-          action={notArrivedAction}
-          csrf={csrf}
-          label="Not Arrived"
-          disabled={!active || !current}
-          className="flex-1 rounded-xl bg-saffron px-4 py-4 text-lg font-semibold text-white hover:bg-saffron/90"
-        />
+      <div className="flex w-full flex-col gap-2">
+        <div className="flex w-full gap-3">
+          <ActionButton
+            action={nextTokenAction}
+            csrf={csrf}
+            label="Next Token"
+            disabled={!active || cooling}
+            onSubmitted={startCooldown}
+            className="flex-1 rounded-xl bg-verdant px-4 py-4 text-lg font-semibold text-white hover:bg-verdant/90"
+          />
+          <ActionButton
+            action={notArrivedAction}
+            csrf={csrf}
+            label="Not Arrived"
+            disabled={!active || !current || cooling}
+            onSubmitted={startCooldown}
+            className="flex-1 rounded-xl bg-saffron px-4 py-4 text-lg font-semibold text-white hover:bg-saffron/90"
+          />
+        </div>
+        {cooling && (
+          <p aria-live="polite" className="text-center text-sm text-ink/50">
+            Please wait {remaining}s before serving the next token.
+          </p>
+        )}
       </div>
 
       <div className="flex w-full flex-col gap-2">

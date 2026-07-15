@@ -58,17 +58,23 @@ export function ImportPanel({ csrf, currentCount }: { csrf: string; currentCount
       <p className="text-sm text-zinc-500">
         Current roster: <b>{currentCount}</b> applicants. Uploading a CSV replaces the entire list.
       </p>
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".csv,text/csv"
-        onChange={(e) => {
-          setFile(e.target.files?.[0] ?? null);
-          setPreview(null);
-          setMsg({});
-        }}
-        className="text-sm"
-      />
+      <div className="flex items-center gap-3">
+        <label className="cursor-pointer rounded-md bg-maroon px-4 py-2 text-sm font-medium text-white hover:bg-maroon-600">
+          Choose CSV file
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={(e) => {
+              setFile(e.target.files?.[0] ?? null);
+              setPreview(null);
+              setMsg({});
+            }}
+            className="sr-only"
+          />
+        </label>
+        <span className="text-sm text-zinc-500">{file ? file.name : "No file chosen"}</span>
+      </div>
       <div className="flex gap-2">
         <button
           type="button"

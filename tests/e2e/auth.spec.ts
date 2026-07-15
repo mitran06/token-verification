@@ -36,6 +36,11 @@ test("admin logs in and provisions counters + shared password + reception user",
   await expect(page.getByText("Counter 1", { exact: true })).toBeVisible();
   await expect(page.getByText("Counter 2", { exact: true })).toBeVisible();
 
+  // Disable the counter action cool-down so the serve tests can click rapidly.
+  await page.locator('input[name="seconds"]').fill("0");
+  await page.getByRole("button", { name: "Save delay" }).click();
+  await expect(page.getByText("Counter action delay set to 0s.")).toBeVisible();
+
   // create reception user
   await page.getByPlaceholder("Username").fill(RECEPTION.username);
   await page.getByPlaceholder("Password", { exact: true }).fill(RECEPTION.password);
@@ -227,4 +232,39 @@ test("admin replaces the applicant roster via CSV import", async ({ page, browse
   await rec.getByRole("button", { name: "Generate token" }).click();
   await expect(rec.getByText(/isn't in the roster/)).toBeVisible();
   await recCtx.close();
+});
+
+test("counter action delay locks Next Token then releases it", async ({ browser }) => {
+  // Admin sets a short cool-down and opens a fresh desk for this test.
+  const adminCtx = await browser.newContext();
+  const admin = await adminCtx.newPage();
+  await admin.goto("/login");
+  await admin.fill('input[name="username"]', ADMIN.username);
+  await admin.fill('input[name="password"]', ADMIN.password);
+  await admin.getByRole("button", { name: "Sign in" }).click();
+  await expect(admin).toHaveURL(/\/admin$/);
+  await admin.locator('input[name="seconds"]').fill("3");
+  await admin.getByRole("button", { name: "Save delay" }).click();
+  await expect(admin.getByText("Counter action delay set to 3s.")).toBeVisible();
+  await admin.getByPlaceholder(/Add a custom counter/).fill("Delay Desk");
+  await admin.getByRole("button", { name: "Add" }).click();
+  await expect(admin.getByText("Added Delay Desk.")).toBeVisible();
+  await adminCtx.close();
+
+  // A handler takes the desk (selecting a station sets it active) and presses
+  // Next Token — both action buttons must then lock for ~3s and release.
+  const ctrCtx = await browser.newContext();
+  const ctr = await ctrCtx.newPage();
+  await ctr.goto("/counter");
+  await ctr.getByPlaceholder("Counter password").fill(COUNTER_PW);
+  await ctr.getByRole("button", { name: "Continue" }).click();
+  await ctr.locator("form", { hasText: "Delay Desk" }).getByRole("button", { name: "Select" }).click();
+  await expect(ctr).toHaveURL(/\/counter\/console$/);
+
+  const nextBtn = ctr.getByRole("button", { name: "Next Token" });
+  await nextBtn.click();
+  await expect(ctr.getByText(/Please wait/)).toBeVisible(); // cool-down hint
+  await expect(nextBtn).toBeDisabled();
+  await expect(nextBtn).toBeEnabled({ timeout: 8000 }); // releases after ~3s
+  await ctrCtx.close();
 });

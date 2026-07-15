@@ -40,6 +40,25 @@ export async function setCounterPasswordAction(
   }
 }
 
+export async function setActionDelayAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  try {
+    await guard(formData);
+    const n = Number(formData.get("seconds"));
+    if (!Number.isInteger(n) || n < 0 || n > 120) {
+      return { error: "Enter a whole number of seconds from 0 to 120." };
+    }
+    await setConfig(CONFIG_KEYS.actionDelaySeconds, n);
+    revalidatePath("/admin");
+    return { ok: `Counter action delay set to ${n}s.` };
+  } catch (e) {
+    if (e instanceof AuthError) return { error: e.message };
+    throw e;
+  }
+}
+
 export async function addCounterAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
   try {
     await guard(formData);

@@ -8,6 +8,7 @@ import {
   reopenTokenAction,
   rotateDisplayKeyAction,
   seedCountersAction,
+  setActionDelayAction,
   setCounterPasswordAction,
   setUserActiveAction,
   toggleCounterOpenAction,
@@ -88,6 +89,7 @@ export function AdminDashboard({
   displayPath,
   applicationCount,
   todayTokens,
+  actionDelaySeconds,
 }: {
   csrf: string;
   counterPasswordSet: boolean;
@@ -96,6 +98,7 @@ export function AdminDashboard({
   displayPath: string;
   applicationCount: number;
   todayTokens: TokenRow[];
+  actionDelaySeconds: number;
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -145,6 +148,26 @@ export function AdminDashboard({
             </li>
           ))}
         </ul>
+      </Section>
+
+      <Section title="Counter action delay">
+        <p className="text-sm text-zinc-500">
+          Seconds a counter must wait after pressing <b>Next Token</b> or <b>Not Arrived</b> before
+          either can be pressed again — guards against an accidental double-click skipping a token.
+          Set to 0 to disable.
+        </p>
+        <ActionForm action={setActionDelayAction} csrf={csrf} submit="Save delay">
+          <label className="text-sm text-zinc-600">Delay in seconds (0–120):</label>
+          <input
+            name="seconds"
+            type="number"
+            min={0}
+            max={120}
+            defaultValue={actionDelaySeconds}
+            required
+            className={inputCls}
+          />
+        </ActionForm>
       </Section>
 
       <Section title="Reception users">

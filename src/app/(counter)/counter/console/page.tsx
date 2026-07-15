@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCsrfToken } from "@/lib/auth/csrf";
 import { getAuth } from "@/lib/auth/rbac";
+import { getActionDelaySeconds } from "@/lib/config";
 import { getCounterCurrent } from "@/lib/queue/queue";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { PageHeader } from "@/components/PageHeader";
@@ -12,7 +13,11 @@ export const dynamic = "force-dynamic";
 export default async function CounterConsolePage() {
   const auth = await getAuth();
   if (auth?.kind !== "counter") redirect("/counter");
-  const [current, csrf] = await Promise.all([getCounterCurrent(auth.counter.id), getCsrfToken()]);
+  const [current, csrf, actionDelaySeconds] = await Promise.all([
+    getCounterCurrent(auth.counter.id),
+    getCsrfToken(),
+    getActionDelaySeconds(),
+  ]);
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center gap-8 p-8">
       <div className="w-full">
@@ -28,7 +33,12 @@ export default async function CounterConsolePage() {
           }
         />
       </div>
-      <ConsoleClient csrf={csrf} status={auth.counter.status} current={current} />
+      <ConsoleClient
+        csrf={csrf}
+        status={auth.counter.status}
+        current={current}
+        delaySeconds={actionDelaySeconds}
+      />
       <LiveRefresh />
     </main>
   );

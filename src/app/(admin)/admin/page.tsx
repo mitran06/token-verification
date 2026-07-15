@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { applications, counters, users } from "@/db/schema";
 import { getCsrfToken } from "@/lib/auth/csrf";
 import { getAuth } from "@/lib/auth/rbac";
-import { CONFIG_KEYS, getConfig } from "@/lib/config";
+import { CONFIG_KEYS, getActionDelaySeconds, getConfig } from "@/lib/config";
 import { getOrCreateDisplayKey } from "@/lib/display-link";
 import { getTodayTokens } from "@/lib/queue/queue";
 import { PageHeader } from "@/components/PageHeader";
@@ -17,7 +17,16 @@ export default async function AdminPage() {
   const auth = await getAuth();
   if (auth?.kind !== "user" || auth.user.role !== "admin") redirect("/login");
 
-  const [counterList, receptionUsers, pwHash, displayKey, appCountRows, todayTokens, csrf] = await Promise.all([
+  const [
+    counterList,
+    receptionUsers,
+    pwHash,
+    displayKey,
+    appCountRows,
+    todayTokens,
+    actionDelaySeconds,
+    csrf,
+  ] = await Promise.all([
     db
       .select({ id: counters.id, label: counters.label, isOpen: counters.isOpen, status: counters.status })
       .from(counters)
@@ -31,6 +40,7 @@ export default async function AdminPage() {
     getOrCreateDisplayKey(),
     db.select({ n: sql<number>`count(*)::int` }).from(applications),
     getTodayTokens(),
+    getActionDelaySeconds(),
     getCsrfToken(),
   ]);
   const applicationCount = appCountRows[0]?.n ?? 0;
@@ -56,6 +66,7 @@ export default async function AdminPage() {
         displayPath={`/display/${displayKey}`}
         applicationCount={applicationCount}
         todayTokens={todayTokens}
+        actionDelaySeconds={actionDelaySeconds}
       />
     </main>
   );
