@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll origin/main every minute and auto-deploy
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+# systemd already serializes: a new run won't start while the service is active.
+AccuracySec=15s
+Unit=amrita-deploy.service
+
+[Install]
+WantedBy=timers.target

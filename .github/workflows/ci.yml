@@ -1,12 +1,25 @@
 name: CI
 
+# Test-only. Deployment is pull-based on the VM (scripts/deploy.sh) — there is NO
+# self-hosted runner, so this is safe to run on a public repo (fork PRs execute
+# only here, on GitHub-hosted machines, with no secrets and a read-only token).
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

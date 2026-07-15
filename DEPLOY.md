@@ -50,8 +50,37 @@ remove `SEED_ADMIN_PASSWORD` from `.env` (the seed is idempotent and skips once 
 - In **Admin**: set the shared counter password, open the day's counters, upload the applicant CSV,
   and copy the **Display wall** link onto the waiting-room screen.
 
+## 6. Auto-deploy (push to `main` → live)
+The VM **pulls** — it runs no GitHub Actions runner, so no pull-request/fork code ever
+executes on it (safe even with the repo public). A systemd timer runs `scripts/deploy.sh`
+every minute; when `origin/main` advances **and** its GitHub CI checks pass, it resets to
+that commit, rebuilds + redeploys, waits for the app to become healthy, and **auto-rolls
+back** to the previous commit if the build/migration/health check fails.
+
+> Path note: on this VM the clone lives at **`~/token-verification`** (`/home/alumni/token-verification`),
+> which is what `deploy.sh` and the unit files assume. If your clone is elsewhere, set
+> `REPO_DIR=/path` in the service file. `GH_REPO` defaults to `mitran06/token-verification`.
+
+Prereqs on the VM: `git`, `docker` (the `alumni` user in the `docker` group), plus `jq`
+and `curl` for the CI gate (`sudo apt-get install -y jq curl`). Install the timer once:
+```bash
+cd ~/token-verification
+sudo cp scripts/amrita-deploy.service scripts/amrita-deploy.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now amrita-deploy.timer
+```
+Watch it work:
+```bash
+systemctl list-timers amrita-deploy.timer    # next/last run
+journalctl -u amrita-deploy -f               # live deploy logs
+sudo systemctl start amrita-deploy.service   # force a deploy check now
+```
+CI (`.github/workflows/ci.yml`) runs typecheck + lint + tests on GitHub-hosted runners for
+every push/PR; the VM's deploy waits for those checks to go green before shipping the commit.
+
 ## Day-to-day
-- **Update:** `git pull && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
+- **Update:** just `git push` to `main`. CI runs, then the VM auto-deploys within ~1–2 min
+  (see §6). Manual fallback: `git pull && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
   (migrations re-run automatically; already-applied ones are skipped).
 - **Backups:** nightly `pg_dump` in `./backups` (14 days kept). Restore:
   `docker compose exec -T db pg_restore -U postgres -d token_system -c < backups/<file>.dump`.

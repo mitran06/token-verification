@@ -1,0 +1,16 @@
+[Unit]
+Description=Amrita verification-queue auto-deploy (pull main + redeploy)
+After=docker.service network-online.target
+Wants=network-online.target
+# Don't start a deploy while the previous one is still running.
+ConditionPathExists=/home/alumni/token-verification/scripts/deploy.sh
+
+[Service]
+Type=oneshot
+User=alumni
+WorkingDirectory=/home/alumni/token-verification
+ExecStart=/home/alumni/token-verification/scripts/deploy.sh
+# Surface deploy logs in `journalctl -u amrita-deploy`
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=900
