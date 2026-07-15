@@ -2,7 +2,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { counters, users } from "@/db/schema";
+import { counters, tokenEvents, tokens, users } from "@/db/schema";
 import { verifyCsrf } from "@/lib/auth/csrf";
 import { AuthError } from "@/lib/auth/errors";
 import { assertNonEmptyPassword, hashPassword } from "@/lib/auth/password";
@@ -137,6 +137,89 @@ export async function toggleCounterOpenAction(
     }
     revalidatePath("/admin");
     return { ok: open ? "Counter opened." : "Counter closed." };
+  } catch (e) {
+    if (e instanceof AuthError) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function setChimeEnabledAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  try {
+    await guard(formData);
+    const enabled = formData.get("enabled") === "1";
+    await setConfig(CONFIG_KEYS.chimeEnabled, enabled);
+    revalidatePath("/admin");
+    return { ok: enabled ? "Display chime enabled." : "Display chime muted." };
+  } catch (e) {
+    if (e instanceof AuthError) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function setNowServingScaleAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  try {
+    await guard(formData);
+    const n = Number(formData.get("scale"));
+    if (!Number.isInteger(n) || n < 1 || n > 5) return { error: "Choose a size from 1 to 5." };
+    await setConfig(CONFIG_KEYS.nowServingScale, n);
+    revalidatePath("/admin");
+    return { ok: `Now Serving card size set to ${n}.` };
+  } catch (e) {
+    if (e instanceof AuthError) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function deleteCounterAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  try {
+    await guard(formData);
+    const id = String(formData.get("counterId") ?? "");
+    if (!id) return { error: "Counter not found." };
+    await db.transaction(async (tx) => {
+      // Return any in-hand token to the queue so nobody is lost.
+      await tx
+        .update(tokens)
+        .set({ status: "queued", assignedTo: null, assignedAt: null, updatedAt: new Date() })
+        .where(and(eq(tokens.assignedTo, id), eq(tokens.status, "assigned")));
+      // Detach historical references so the FK doesn't block the delete. The
+      // audit trail survives — token_events snapshot the number + applicant.
+      await tx.update(tokens).set({ assignedTo: null }).where(eq(tokens.assignedTo, id));
+      await tx.update(tokenEvents).set({ actorCounterId: null }).where(eq(tokenEvents.actorCounterId, id));
+      await tx.delete(counters).where(eq(counters.id, id)); // counter sessions cascade
+    });
+    revalidatePath("/admin");
+    return { ok: "Counter deleted." };
+  } catch (e) {
+    if (e instanceof AuthError) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function deleteReceptionUserAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  try {
+    await guard(formData);
+    const id = String(formData.get("userId") ?? "");
+    const [target] = await db.select({ role: users.role }).from(users).where(eq(users.id, id)).limit(1);
+    if (!target) return { error: "User not found." };
+    if (target.role === "admin") return { error: "You can't delete an admin here." };
+    await db.transaction(async (tx) => {
+      await tx.update(tokenEvents).set({ actorUserId: null }).where(eq(tokenEvents.actorUserId, id));
+      await tx.delete(users).where(eq(users.id, id)); // user sessions cascade
+    });
+    revalidatePath("/admin");
+    return { ok: "Reception user deleted." };
   } catch (e) {
     if (e instanceof AuthError) return { error: e.message };
     throw e;

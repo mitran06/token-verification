@@ -41,7 +41,8 @@ test("admin logs in and provisions counters + shared password + reception user",
   await page.getByRole("button", { name: "Save delay" }).click();
   await expect(page.getByText("Counter action delay set to 0s.")).toBeVisible();
 
-  // create reception user
+  // create reception user (Reception tab)
+  await page.getByRole("button", { name: "Reception", exact: true }).click();
   await page.getByPlaceholder("Username").fill(RECEPTION.username);
   await page.getByPlaceholder("Password", { exact: true }).fill(RECEPTION.password);
   await page.getByRole("button", { name: "Create reception user" }).click();
@@ -154,11 +155,14 @@ test("the display wall updates live (SSE) when a counter serves a token", async 
   await admin.fill('input[name="password"]', ADMIN.password);
   await admin.getByRole("button", { name: "Sign in" }).click();
   await expect(admin).toHaveURL(/\/admin$/);
-  const displayPath = await admin.locator('a[href^="/display/"]').first().getAttribute("href");
-  expect(displayPath).toBeTruthy();
+  // add a fresh counter (Counters tab is the default)
   await admin.getByPlaceholder(/Add a custom counter/).fill("Counter 3");
   await admin.getByRole("button", { name: "Add" }).click();
   await expect(admin.getByText("Added Counter 3.")).toBeVisible();
+  // grab the display link from the Display tab
+  await admin.getByRole("button", { name: "Display", exact: true }).click();
+  const displayPath = await admin.locator('a[href^="/display/"]').first().getAttribute("href");
+  expect(displayPath).toBeTruthy();
   await adminCtx.close();
 
   // Open the wall (unauthenticated — gated by the display key).
@@ -207,6 +211,7 @@ test("admin replaces the applicant roster via CSV import", async ({ page, browse
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/admin$/);
 
+  await page.getByRole("button", { name: "Roster", exact: true }).click();
   await page.locator('input[type="file"]').setInputFiles({
     name: "roster.csv",
     mimeType: "text/csv",

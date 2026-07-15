@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { applications, counters, tokenEvents, tokens } from "@/db/schema";
+import { getChimeEnabled, getNowServingScale } from "@/lib/config";
 import { businessDay } from "./time";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -383,6 +384,8 @@ export type Board = {
   queued: TokenView[];
   missed: TokenView[];
   openCounters: number;
+  chimeEnabled: boolean;
+  nowServingScale: number;
 };
 
 export async function getBoard(): Promise<Board> {
@@ -398,7 +401,11 @@ export async function getBoard(): Promise<Board> {
     .select({ open: sql<number>`count(*)::int` })
     .from(counters)
     .where(eq(counters.isOpen, true));
-  const queued = await getQueuedTokens();
-  const missed = await getNotArrivedTokens();
-  return { calls, queued, missed, openCounters: Number(open) };
+  const [queued, missed, chimeEnabled, nowServingScale] = await Promise.all([
+    getQueuedTokens(),
+    getNotArrivedTokens(),
+    getChimeEnabled(),
+    getNowServingScale(),
+  ]);
+  return { calls, queued, missed, openCounters: Number(open), chimeEnabled, nowServingScale };
 }

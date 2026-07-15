@@ -5,7 +5,13 @@ import { db } from "@/db";
 import { applications, counters, users } from "@/db/schema";
 import { getCsrfToken } from "@/lib/auth/csrf";
 import { getAuth } from "@/lib/auth/rbac";
-import { CONFIG_KEYS, getActionDelaySeconds, getConfig } from "@/lib/config";
+import {
+  CONFIG_KEYS,
+  getActionDelaySeconds,
+  getChimeEnabled,
+  getConfig,
+  getNowServingScale,
+} from "@/lib/config";
 import { getOrCreateDisplayKey } from "@/lib/display-link";
 import { getTodayTokens } from "@/lib/queue/queue";
 import { PageHeader } from "@/components/PageHeader";
@@ -25,6 +31,8 @@ export default async function AdminPage() {
     appCountRows,
     todayTokens,
     actionDelaySeconds,
+    chimeEnabled,
+    nowServingScale,
     csrf,
   ] = await Promise.all([
     db
@@ -41,6 +49,8 @@ export default async function AdminPage() {
     db.select({ n: sql<number>`count(*)::int` }).from(applications),
     getTodayTokens(),
     getActionDelaySeconds(),
+    getChimeEnabled(),
+    getNowServingScale(),
     getCsrfToken(),
   ]);
   const applicationCount = appCountRows[0]?.n ?? 0;
@@ -67,6 +77,8 @@ export default async function AdminPage() {
         applicationCount={applicationCount}
         todayTokens={todayTokens}
         actionDelaySeconds={actionDelaySeconds}
+        chimeEnabled={chimeEnabled}
+        nowServingScale={nowServingScale}
       />
     </main>
   );

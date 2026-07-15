@@ -1,25 +1,43 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/PageHeader";
 import { useChime } from "@/components/useChime";
 import { useEventStream } from "@/components/useEventStream";
 
 type Call = { tokenNumber: number; counterLabel: string };
 type TokenView = { tokenNumber: number; applicationNumber: string; applicationName: string };
-type Board = { calls: Call[]; queued: TokenView[]; missed: TokenView[]; openCounters: number };
+type Board = {
+  calls: Call[];
+  queued: TokenView[];
+  missed: TokenView[];
+  openCounters: number;
+  chimeEnabled: boolean;
+  nowServingScale: number;
+};
 
 const callKey = (c: Call | undefined) => (c ? `${c.tokenNumber}@${c.counterLabel}` : null);
 
 export function Wall({ displayKey, initial }: { displayKey: string; initial: Board }) {
   const [board, setBoard] = useState<Board>(initial);
-  const { enabled, enable, muted, setMuted, play } = useChime();
+  const { enable, play } = useChime();
   const [flashTop, setFlashTop] = useState(false);
   // Keys we've already shown, so a NEW call flashes but a token merely leaving
   // the board (served / not-arrived) doesn't false-trigger a flash + chime.
   const seen = useRef<Set<string>>(new Set(initial.calls.map((c) => callKey(c) as string)));
 
-  // Refetch on each SSE event; if a brand-new call appears top-left, flash it +
-  // chime so a registrant sees their number appear top-left.
+  // No on-screen sound button: unlock audio on first interaction with the wall
+  // (autoplay policy needs a gesture). Admin controls whether it chimes at all.
+  useEffect(() => {
+    enable();
+    const arm = () => enable();
+    window.addEventListener("pointerdown", arm, { once: true });
+    window.addEventListener("keydown", arm, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", arm);
+      window.removeEventListener("keydown", arm);
+    };
+  }, [enable]);
+
   const refetch = useCallback(async () => {
     try {
       const r = await fetch(`/api/board?d=${encodeURIComponent(displayKey)}`, { cache: "no-store" });
@@ -30,7 +48,7 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
       const isNewTop = !!topKey && !seen.current.has(topKey);
       seen.current = new Set(next.calls.map((c) => callKey(c) as string));
       if (isNewTop) {
-        play();
+        if (next.chimeEnabled) play();
         setFlashTop(true);
         setTimeout(() => setFlashTop(false), 10_000);
       }
@@ -41,12 +59,18 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
 
   useEventStream(`/api/events?d=${encodeURIComponent(displayKey)}`, refetch);
 
+  // Slider 1…5 → card size (bigger = fewer per row). Cards are square.
+  const scale = board.nowServingScale ?? 3;
+  const cardMin = 120 + scale * 44; // px, 164 … 340
+  const numFont = Math.round(cardMin * 0.42);
+  const labelFont = Math.round(cardMin * 0.13);
+
   return (
     <main
       className="bg-cover bg-center"
       style={{
         backgroundImage:
-          "linear-gradient(rgba(246,245,242,0.9), rgba(246,245,242,0.95)), url(/campus.jpeg)",
+          "linear-gradient(rgba(246,245,242,0.74), rgba(246,245,242,0.84)), url(/campus.jpeg)",
       }}
     >
       <div className="flex min-h-screen flex-col p-6 md:p-10">
@@ -60,28 +84,14 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-base md:text-lg">
-            <span className="hidden text-ink/50 sm:inline">{board.openCounters} counters open</span>
-            {!enabled ? (
-              <button
-                onClick={enable}
-                className="rounded-lg border border-ink/15 bg-paper-2 px-4 py-2 hover:bg-ink/5"
-              >
-                Enable sound
-              </button>
-            ) : (
-              <button
-                onClick={() => setMuted(!muted)}
-                className="rounded-lg border border-ink/15 bg-paper-2 px-4 py-2 hover:bg-ink/5"
-              >
-                {muted ? "Unmute" : "Mute"}
-              </button>
-            )}
-          </div>
+          <span className="text-base text-ink/50 md:text-lg">{board.openCounters} counters open</span>
         </header>
 
-        {/* Newest call lands top-left and flashes. Large cards for TV legibility. */}
-        <div className="grid flex-1 auto-rows-min grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 xl:grid-cols-4">
+        {/* Newest call lands top-left and flashes. Square cards, admin-sized. */}
+        <div
+          className="grid flex-1 justify-center gap-4 md:gap-6"
+          style={{ gridTemplateColumns: `repeat(auto-fill, ${cardMin}px)` }}
+        >
           {board.calls.length === 0 && (
             <div className="col-span-full py-20 text-center text-3xl text-ink/40">
               No tokens are being called right now…
@@ -92,16 +102,22 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
             return (
               <div
                 key={`${c.tokenNumber}-${c.counterLabel}`}
-                className={`flex flex-col items-center justify-center rounded-3xl border p-6 text-center shadow-sm transition-colors md:p-8 ${
+                className={`flex aspect-square flex-col items-center justify-center rounded-3xl border p-4 text-center shadow-sm transition-colors ${
                   isTop
                     ? "animate-pulse border-4 border-maroon bg-maroon-100 motion-reduce:animate-none"
                     : "border-ink/10 bg-paper-2/95"
                 }`}
               >
-                <div className="nums text-7xl font-bold leading-none text-maroon md:text-8xl">
+                <div
+                  className="nums font-bold leading-none text-maroon"
+                  style={{ fontSize: numFont }}
+                >
                   {c.tokenNumber}
                 </div>
-                <div className="mt-3 text-xl font-semibold text-ink/70 md:text-2xl">
+                <div
+                  className="mt-2 font-semibold text-ink/70"
+                  style={{ fontSize: labelFont }}
+                >
                   {c.counterLabel}
                 </div>
               </div>
@@ -114,8 +130,8 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
           <TokenStrip title="Missed" items={board.missed} tone="text-saffron" />
         </div>
 
-        <footer className="mt-8 border-t border-ink/15 pt-5 text-center text-lg text-ink/70 md:text-xl">
-          Built by{" "}
+        <footer className="mt-8 border-t border-ink/15 pt-5 text-center text-base text-ink/70 md:text-lg">
+          Token Management System by{" "}
           <a
             href="https://rochit02.github.io"
             target="_blank"
@@ -132,7 +148,17 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
             className="font-semibold text-maroon hover:underline"
           >
             Mitran Gokulnath
+          </a>{" "}
+          is licensed under{" "}
+          <a
+            href="https://creativecommons.org/licenses/by-nc/4.0/"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:text-maroon"
+          >
+            Creative Commons Attribution-NonCommercial 4.0 International
           </a>
+          .
         </footer>
 
         <div aria-live="polite" className="sr-only">
