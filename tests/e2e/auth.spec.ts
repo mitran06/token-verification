@@ -263,6 +263,10 @@ test("counter action delay locks Next Token then releases it", async ({ browser 
 
   const nextBtn = ctr.getByRole("button", { name: "Next Token" });
   await nextBtn.click();
+  // The token MUST actually be served despite the delay (Z999 = "Zeta Zed" was
+  // queued by the CSV-import test above). This guards the "no token assigned
+  // when a delay is set" regression.
+  await expect(ctr.getByText("Zeta Zed")).toBeVisible();
   await expect(ctr.getByText(/Please wait/)).toBeVisible(); // cool-down hint
   await expect(nextBtn).toBeDisabled();
   await expect(nextBtn).toBeEnabled({ timeout: 8000 }); // releases after ~3s

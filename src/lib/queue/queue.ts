@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { applications, counters, tokenEvents, tokens } from "@/db/schema";
 import { businessDay } from "./time";
@@ -373,8 +373,10 @@ export async function getNotArrivedTokens(): Promise<MissedToken[]> {
 // ---------------------------------------------------------------------------
 // Board (display wall): open counters + their current token, plus missed/queued.
 // ---------------------------------------------------------------------------
-// A "call" = a token that a counter has been assigned/served, newest first.
-// The wall renders these so the just-called token lands top-left and flashes.
+// A "call" = a token a counter is CURRENTLY serving (status 'assigned'), newest
+// first. Once a token is served or marked not-arrived it drops off the wall (it
+// leaves 'assigned'), mirroring the legacy per-counter current-token display.
+// Max rows = number of counters serving at once.
 export type Call = { tokenNumber: number; counterLabel: string };
 export type Board = {
   calls: Call[];
@@ -389,9 +391,9 @@ export async function getBoard(): Promise<Board> {
     .select({ tokenNumber: tokens.tokenNumber, counterLabel: counters.label })
     .from(tokens)
     .innerJoin(counters, eq(tokens.assignedTo, counters.id))
-    .where(and(eq(tokens.businessDay, day), isNotNull(tokens.assignedAt)))
+    .where(and(eq(tokens.businessDay, day), eq(tokens.status, "assigned")))
     .orderBy(desc(tokens.assignedAt))
-    .limit(24);
+    .limit(50);
   const [{ open }] = await db
     .select({ open: sql<number>`count(*)::int` })
     .from(counters)

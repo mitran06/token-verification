@@ -147,6 +147,34 @@ describe("counter servicing", () => {
   });
 });
 
+describe("display board (getBoard)", () => {
+  it("shows only currently-assigned tokens; served and not-arrived drop off", async () => {
+    for (let i = 1; i <= 3; i++) await seedApplication(`A${i}`);
+    for (let i = 1; i <= 3; i++) await q.generateToken(`A${i}`); // queued 1,2,3
+    const c1 = await seedActiveCounter("Counter 1");
+    const c2 = await seedActiveCounter("Counter 2");
+
+    await q.nextToken(c1.id); // c1 holds #1
+    await q.nextToken(c2.id); // c2 holds #2
+
+    let board = await q.getBoard();
+    expect(board.calls.map((x) => x.tokenNumber).sort((a, b) => a - b)).toEqual([1, 2]);
+    expect(board.queued.map((x) => x.tokenNumber)).toEqual([3]);
+    expect(board.missed.length).toBe(0);
+
+    await q.nextToken(c1.id); // serves #1, claims #3 → c1 holds #3, #1 served
+    board = await q.getBoard();
+    const nums = board.calls.map((x) => x.tokenNumber).sort((a, b) => a - b);
+    expect(nums).toEqual([2, 3]); // #1 (served) no longer on the wall
+    expect(nums).not.toContain(1);
+
+    await q.notArrived(c2.id); // #2 → not_arrived (queue empty)
+    board = await q.getBoard();
+    expect(board.calls.map((x) => x.tokenNumber)).toEqual([3]); // only #3 still assigned
+    expect(board.missed.map((x) => x.tokenNumber)).toEqual([2]); // #2 moved to missed
+  });
+});
+
 describe("delete + reopen with audit", () => {
   it("delete removes the token but keeps an audit event; reopen revives a served token", async () => {
     await seedApplication("A1");

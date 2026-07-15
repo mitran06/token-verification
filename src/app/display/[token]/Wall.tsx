@@ -14,19 +14,22 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
   const [board, setBoard] = useState<Board>(initial);
   const { enabled, enable, muted, setMuted, play } = useChime();
   const [flashTop, setFlashTop] = useState(false);
-  const lastTop = useRef<string | null>(callKey(initial.calls[0]));
+  // Keys we've already shown, so a NEW call flashes but a token merely leaving
+  // the board (served / not-arrived) doesn't false-trigger a flash + chime.
+  const seen = useRef<Set<string>>(new Set(initial.calls.map((c) => callKey(c) as string)));
 
-  // Refetch on each SSE event; if the newest call changed, flash the top-left
-  // cell + chime so a registrant sees their number appear top-left.
+  // Refetch on each SSE event; if a brand-new call appears top-left, flash it +
+  // chime so a registrant sees their number appear top-left.
   const refetch = useCallback(async () => {
     try {
       const r = await fetch(`/api/board?d=${encodeURIComponent(displayKey)}`, { cache: "no-store" });
       if (!r.ok) return;
       const next: Board = await r.json();
-      const topKey = callKey(next.calls[0]);
       setBoard(next);
-      if (topKey && topKey !== lastTop.current) {
-        lastTop.current = topKey;
+      const topKey = callKey(next.calls[0]);
+      const isNewTop = !!topKey && !seen.current.has(topKey);
+      seen.current = new Set(next.calls.map((c) => callKey(c) as string));
+      if (isNewTop) {
         play();
         setFlashTop(true);
         setTimeout(() => setFlashTop(false), 10_000);
@@ -40,36 +43,36 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
 
   return (
     <main
-      className="flex-1 bg-cover bg-center bg-fixed"
+      className="bg-cover bg-center"
       style={{
         backgroundImage:
-          "linear-gradient(rgba(246,245,242,0.88), rgba(246,245,242,0.94)), url(/campus.jpeg)",
+          "linear-gradient(rgba(246,245,242,0.9), rgba(246,245,242,0.95)), url(/campus.jpeg)",
       }}
     >
-      <div className="flex min-h-full flex-col p-6">
-        <header className="mb-5 flex items-center justify-between border-b-2 border-maroon/70 pb-4">
-          <div className="flex items-center gap-3">
-            <BrandMark className="h-11 w-auto" />
+      <div className="flex min-h-screen flex-col p-6 md:p-10">
+        <header className="mb-6 flex items-center justify-between border-b-2 border-maroon/70 pb-4">
+          <div className="flex items-center gap-4">
+            <BrandMark className="h-14 w-auto" />
             <div>
-              <h1 className="text-2xl font-bold text-maroon">Now Serving</h1>
-              <p className="text-xs uppercase tracking-wide text-ink/50">
+              <h1 className="text-3xl font-bold text-maroon md:text-4xl">Now Serving</h1>
+              <p className="text-sm uppercase tracking-wide text-ink/50 md:text-base">
                 Document verification · Admissions
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-4 text-base md:text-lg">
             <span className="hidden text-ink/50 sm:inline">{board.openCounters} counters open</span>
             {!enabled ? (
               <button
                 onClick={enable}
-                className="rounded-md border border-ink/15 bg-paper-2 px-3 py-1.5 hover:bg-ink/5"
+                className="rounded-lg border border-ink/15 bg-paper-2 px-4 py-2 hover:bg-ink/5"
               >
                 Enable sound
               </button>
             ) : (
               <button
                 onClick={() => setMuted(!muted)}
-                className="rounded-md border border-ink/15 bg-paper-2 px-3 py-1.5 hover:bg-ink/5"
+                className="rounded-lg border border-ink/15 bg-paper-2 px-4 py-2 hover:bg-ink/5"
               >
                 {muted ? "Unmute" : "Mute"}
               </button>
@@ -77,11 +80,11 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
           </div>
         </header>
 
-        {/* Newest call lands top-left and flashes. */}
-        <div className="grid flex-1 auto-rows-min grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        {/* Newest call lands top-left and flashes. Large cards for TV legibility. */}
+        <div className="grid flex-1 auto-rows-min grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 xl:grid-cols-4">
           {board.calls.length === 0 && (
-            <div className="col-span-full py-16 text-center text-lg text-ink/40">
-              Waiting for the first token to be called…
+            <div className="col-span-full py-20 text-center text-3xl text-ink/40">
+              No tokens are being called right now…
             </div>
           )}
           {board.calls.map((c, i) => {
@@ -89,31 +92,35 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
             return (
               <div
                 key={`${c.tokenNumber}-${c.counterLabel}`}
-                className={`rounded-xl border p-4 text-center shadow-sm transition-colors ${
+                className={`flex flex-col items-center justify-center rounded-3xl border p-6 text-center shadow-sm transition-colors md:p-8 ${
                   isTop
-                    ? "animate-pulse border-maroon bg-maroon-100 motion-reduce:animate-none"
-                    : "border-ink/10 bg-paper-2"
+                    ? "animate-pulse border-4 border-maroon bg-maroon-100 motion-reduce:animate-none"
+                    : "border-ink/10 bg-paper-2/95"
                 }`}
               >
-                <div className="nums text-5xl font-bold text-maroon">{c.tokenNumber}</div>
-                <div className="mt-1 text-sm font-medium text-ink/70">{c.counterLabel}</div>
+                <div className="nums text-7xl font-bold leading-none text-maroon md:text-8xl">
+                  {c.tokenNumber}
+                </div>
+                <div className="mt-3 text-xl font-semibold text-ink/70 md:text-2xl">
+                  {c.counterLabel}
+                </div>
               </div>
             );
           })}
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <div className="mt-8 grid gap-6 md:grid-cols-2">
           <TokenStrip title="Waiting" items={board.queued} />
           <TokenStrip title="Missed" items={board.missed} tone="text-saffron" />
         </div>
 
-        <footer className="mt-6 border-t border-ink/10 pt-3 text-center text-xs text-ink/50">
+        <footer className="mt-8 border-t border-ink/15 pt-5 text-center text-lg text-ink/70 md:text-xl">
           Built by{" "}
           <a
             href="https://rochit02.github.io"
             target="_blank"
             rel="noreferrer"
-            className="font-medium text-maroon hover:underline"
+            className="font-semibold text-maroon hover:underline"
           >
             Rochit Madamanchi
           </a>
@@ -122,7 +129,7 @@ export function Wall({ displayKey, initial }: { displayKey: string; initial: Boa
             href="https://mitran.dev"
             target="_blank"
             rel="noreferrer"
-            className="font-medium text-maroon hover:underline"
+            className="font-semibold text-maroon hover:underline"
           >
             Mitran Gokulnath
           </a>
@@ -148,16 +155,16 @@ function TokenStrip({
   tone?: string;
 }) {
   return (
-    <section className="rounded-xl border border-ink/10 bg-paper-2/90 p-4">
-      <h2 className="mb-2 font-semibold">
+    <section className="rounded-2xl border border-ink/10 bg-paper-2/90 p-5 md:p-6">
+      <h2 className="mb-3 text-2xl font-semibold md:text-3xl">
         {title} <span className="text-ink/40">({items.length})</span>
       </h2>
-      <div className="flex flex-wrap gap-2">
-        {items.length === 0 && <span className="text-ink/30">None</span>}
+      <div className="flex flex-wrap gap-3">
+        {items.length === 0 && <span className="text-xl text-ink/30">None</span>}
         {items.map((t) => (
           <span
             key={t.applicationNumber}
-            className={`nums rounded-md bg-paper px-2.5 py-1 font-semibold ${tone}`}
+            className={`nums rounded-xl bg-paper px-4 py-2 text-3xl font-bold md:text-4xl ${tone}`}
           >
             {t.tokenNumber}
           </span>

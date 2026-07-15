@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useCallback, useEffect, useState } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import { FormError } from "@/components/ui/form";
 import {
   type ConsoleState,
@@ -19,7 +19,7 @@ function ActionButton({
   className,
   disabled,
   hidden,
-  onSubmitted,
+  onCompleted,
 }: {
   action: Action;
   csrf: string;
@@ -27,18 +27,25 @@ function ActionButton({
   className: string;
   disabled?: boolean;
   hidden?: React.ReactNode;
-  onSubmitted?: () => void;
+  onCompleted?: () => void;
 }) {
-  const [state, formAction] = useActionState<ConsoleState, FormData>(action, {});
+  const [state, formAction, isPending] = useActionState<ConsoleState, FormData>(action, {});
+  // Start the cool-down only AFTER the action finishes (pending → done), so the
+  // form actually submits first. Disabling the button during the click would
+  // cancel the submit — that was the "no token assigned when a delay is set" bug.
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (wasPending.current && !isPending) onCompleted?.();
+    wasPending.current = isPending;
+  }, [isPending, onCompleted]);
   return (
     <div className="flex flex-1 flex-col gap-1">
-      <form action={formAction}>
+      <form action={formAction} className="w-full">
         <input type="hidden" name="csrf" value={csrf} />
         {hidden}
         <button
           type="submit"
-          disabled={disabled}
-          onClick={onSubmitted}
+          disabled={disabled || isPending}
           className={`${className} disabled:cursor-not-allowed disabled:opacity-40`}
         >
           {label}
@@ -62,9 +69,8 @@ export function ConsoleClient({
 }) {
   const active = status === "active";
 
-  // After Next Token / Not Arrived, lock BOTH buttons for `delaySeconds` so an
-  // accidental double-click can't skip a token. The countdown survives the SSE
-  // refresh because this client component keeps its state across router.refresh().
+  // After Next Token / Not Arrived completes, lock BOTH buttons for
+  // `delaySeconds` so an accidental double-click can't skip a token.
   const [remaining, setRemaining] = useState(0);
   const cooling = remaining > 0;
   const startCooldown = useCallback(() => {
@@ -104,16 +110,16 @@ export function ConsoleClient({
             csrf={csrf}
             label="Next Token"
             disabled={!active || cooling}
-            onSubmitted={startCooldown}
-            className="flex-1 rounded-xl bg-verdant px-4 py-4 text-lg font-semibold text-white hover:bg-verdant/90"
+            onCompleted={startCooldown}
+            className="w-full rounded-xl bg-verdant px-4 py-4 text-lg font-semibold text-white hover:bg-verdant/90"
           />
           <ActionButton
             action={notArrivedAction}
             csrf={csrf}
             label="Not Arrived"
             disabled={!active || !current || cooling}
-            onSubmitted={startCooldown}
-            className="flex-1 rounded-xl bg-saffron px-4 py-4 text-lg font-semibold text-white hover:bg-saffron/90"
+            onCompleted={startCooldown}
+            className="w-full rounded-xl bg-saffron px-4 py-4 text-lg font-semibold text-white hover:bg-saffron/90"
           />
         </div>
         {cooling && (
@@ -135,7 +141,7 @@ export function ConsoleClient({
               csrf={csrf}
               label={s === "active" ? "Active" : s === "on_break" ? "On Break" : "Closed"}
               hidden={<input type="hidden" name="status" value={s} />}
-              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
+              className={`w-full rounded-lg border px-3 py-2 text-sm font-medium ${
                 status === s ? "border-maroon bg-maroon text-white" : "border-ink/15 hover:bg-ink/5"
               }`}
             />
